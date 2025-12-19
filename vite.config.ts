@@ -2,17 +2,17 @@
 import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  // Загружаем переменные окружения из системного процесса (Vercel)
-  // Casting process to any to avoid "Property 'cwd' does not exist on type 'Process'" TS error
+  // Fix: Cast process to any to avoid "Property 'cwd' does not exist on type 'Process'" error.
+  // Standard Vite usage of process.cwd() often requires explicit Node typing in some environments.
   const env = loadEnv(mode, (process as any).cwd(), '');
   
+  const apiKey = env.API_KEY || process.env.API_KEY || '';
+
   return {
     define: {
-      // Подменяем обращение к process.env.API_KEY на реальное значение ключа
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY),
-      // Создаем объект process.env для совместимости в браузере
+      'process.env.API_KEY': JSON.stringify(apiKey),
       'process.env': {
-        API_KEY: env.API_KEY || process.env.API_KEY
+        API_KEY: apiKey
       }
     },
     build: {

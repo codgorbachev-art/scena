@@ -18,7 +18,6 @@ const containerVariants: Variants = {
   visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
 };
 
-// Define missing itemVariants for motion elements
 const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 }
@@ -61,9 +60,24 @@ function HomePage() {
   const [showBrainstorm, setShowBrainstorm] = useState(false);
   const recognitionRef = useRef<any>(null);
 
+  // Mandatory API Key selection state for Gemini 3 and high-quality generation
+  const [apiKeySelected, setApiKeySelected] = useState<boolean | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Initial check for API Key selection status
+    const checkKey = async () => {
+      if ((window as any).aistudio?.hasSelectedApiKey) {
+        const selected = await (window as any).aistudio.hasSelectedApiKey();
+        setApiKeySelected(selected);
+      } else {
+        // Fallback for non-AI Studio environments
+        setApiKeySelected(true);
+      }
+    };
+    checkKey();
+
     setLimits(mockBackend.getUserStatus());
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -73,6 +87,14 @@ function HomePage() {
       recognitionRef.current.onend = () => setIsListening(false);
     }
   }, []);
+
+  const handleOpenSelectKey = async () => {
+    if ((window as any).aistudio?.openSelectKey) {
+      await (window as any).aistudio.openSelectKey();
+      // Assume selection was successful after triggering the dialog to avoid race conditions
+      setApiKeySelected(true);
+    }
+  };
 
   const toggleVoiceInput = () => {
     if (!recognitionRef.current) return;
@@ -102,15 +124,56 @@ function HomePage() {
         document.getElementById('result-area')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
     } catch (e: any) {
-      setError("Ошибка ИИ: " + e.message);
+      const msg = e.message || "Ошибка ИИ";
+      // Handle API key errors by resetting selection state as per guidelines
+      if (msg.includes("Requested entity was not found.")) {
+        setApiKeySelected(false);
+      }
+      setError(msg.includes("API key") ? "Ошибка: Проверьте правильность API_KEY в настройках Vercel." : msg);
     } finally {
       setLoading(false);
     }
   }
 
+  // Mandatory UI for API key selection if not yet selected
+  if (apiKeySelected === false) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6 text-zinc-100">
+        <div className="glass-card p-12 md:p-16 rounded-[3rem] text-center max-w-xl w-full border border-zinc-800/40 shadow-2xl">
+          <div className="w-20 h-20 bg-emerald-500/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-emerald-500/20 text-emerald-500">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.778-7.778z"/>
+              <path d="M12 12l.94 2.48c.18.47.63.78 1.14.78h2.34c.5 0 .93-.31 1.1-.78l.48-1.48h2.5"/>
+              <path d="M16 8l2 2"/>
+            </svg>
+          </div>
+          <h2 className="text-3xl font-black mb-6 uppercase tracking-tight">Требуется API ключ</h2>
+          <p className="text-zinc-500 mb-10 font-bold uppercase tracking-[0.1em] text-xs leading-relaxed">
+            Для работы с Gemini 3 необходимо выбрать API ключ из платного проекта Google Cloud.
+          </p>
+          <div className="flex flex-col gap-4">
+            <button 
+              onClick={handleOpenSelectKey}
+              className="w-full py-6 bg-emerald-500 text-black font-black uppercase tracking-widest rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
+            >
+              Выбрать API ключ
+            </button>
+            <a 
+              href="https://ai.google.dev/gemini-api/docs/billing" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
+              Документация по биллингу
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#050505] text-zinc-100 selection:bg-emerald-500/30">
-      {/* Анимированный фон */}
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
         <div className="absolute top-[-15%] left-[-10%] w-[70%] h-[70%] bg-emerald-900/10 blur-[150px] rounded-full opacity-40 animate-pulse" />
         <div className="absolute bottom-[-15%] right-[-10%] w-[70%] h-[70%] bg-blue-900/10 blur-[150px] rounded-full opacity-40 animate-pulse" style={{ animationDelay: '2s' }} />
@@ -149,9 +212,7 @@ function HomePage() {
         </header>
 
         <main className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
-          {/* Левая колонка: Ввод и настройки */}
           <section className="lg:col-span-5 space-y-12">
-            
             <motion.div variants={itemVariants} className="glass-card rounded-[2.5rem] p-6 sm:p-10 md:p-12 border border-zinc-800/30 shadow-2xl relative overflow-hidden">
               <div className="flex justify-between items-center mb-10">
                  <div className="flex items-center gap-3">
@@ -227,7 +288,6 @@ function HomePage() {
             </motion.button>
           </section>
 
-          {/* Правая колонка: Результат */}
           <section id="result-area" className="lg:col-span-7 space-y-16">
             <div className="min-h-[400px]">
               <ResultPanel loading={loading} error={error} result={currentResult} onCopy={() => {}} />

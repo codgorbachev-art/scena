@@ -8,12 +8,22 @@ const SYSTEM_INSTRUCTION = `Ты — элитный бизнес-аналити�
 Используй Google Search для поиска ТТХ, цен и отзывов.
 ВЕРНИ СТРОГИЙ JSON.`;
 
+const getApiKey = () => {
+  const key = process.env.API_KEY;
+  if (!key || key === "undefined" || key === "" || key.includes("ваш_ключ")) {
+    return null;
+  }
+  return key;
+};
+
 export async function generateScenario(req: GenerateRequest): Promise<GenerateResult> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key не настроен. Пожалуйста, добавьте API_KEY в настройки Vercel.");
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const duration = req.options.durationSec;
   const targetWordCount = Math.floor((duration / 60) * 140);
-  const minShots = Math.max(6, Math.ceil(duration / 10));
 
   const promptParts: any[] = [];
   
@@ -61,13 +71,16 @@ export async function generateScenario(req: GenerateRequest): Promise<GenerateRe
 
   const sources: GroundingSource[] = [];
   const candidates = response.candidates;
-  if (Array.isArray(candidates) && candidates.length > 0) {
-    const groundingMetadata = candidates[0]?.groundingMetadata;
+  
+  if (candidates && candidates.length > 0) {
+    const groundingMetadata = candidates[0].groundingMetadata;
     const chunks = groundingMetadata?.groundingChunks;
     if (Array.isArray(chunks)) {
       chunks.forEach((chunk: any) => {
-        if (chunk?.web?.title && chunk?.web?.uri) {
-          sources.push({ title: chunk.web.title, uri: chunk.web.uri });
+        const title = chunk?.web?.title;
+        const uri = chunk?.web?.uri;
+        if (title && uri) {
+          sources.push({ title, uri });
         }
       });
     }
@@ -77,7 +90,10 @@ export async function generateScenario(req: GenerateRequest): Promise<GenerateRe
 }
 
 export async function generateThumbnailVisual(idea: string): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key не настроен.");
+
+  const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-image-preview',
     contents: [{ parts: [{ text: `Cinematic commercial photography: ${idea}` }] }],
@@ -87,17 +103,18 @@ export async function generateThumbnailVisual(idea: string): Promise<string> {
   });
 
   const candidates = response.candidates;
-  if (Array.isArray(candidates) && candidates.length > 0) {
+  if (candidates && candidates.length > 0) {
     const candidate = candidates[0];
-    const parts = candidate?.content?.parts;
+    const parts = candidate.content?.parts;
     if (Array.isArray(parts)) {
       for (const part of parts) {
-        if (part?.inlineData?.data) {
-          return `data:image/png;base64,${part.inlineData.data}`;
+        const data = part.inlineData?.data;
+        if (data) {
+          return `data:image/png;base64,${data}`;
         }
       }
     }
   }
   
-  throw new Error("Failed to generate image parts.");
+  throw new Error("Не удалось извлечь изображение из ответа модели.");
 }

@@ -1,62 +1,75 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-type Item = { key: string; title: string; desc: string };
+type Item = { 
+  key: string; 
+  title: string; 
+  desc: string; 
+  icon?: React.ReactNode 
+};
 
-export function OptionCards(props: {
+interface OptionCardsProps {
   title: string;
   items: Item[];
   value: string;
   onChange: (v: string) => void;
-}) {
+}
+
+export const OptionCards = React.memo((props: OptionCardsProps) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between px-2">
-        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em] font-mono">
+        <label className="text-[9px] font-mono font-black text-zinc-600 uppercase tracking-[0.5em]">
           {props.title}
         </label>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4" role="radiogroup" aria-label={props.title}>
         {props.items.map((item) => {
           const isActive = props.value === item.key;
           return (
             <motion.button
               key={item.key}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
+              role="radio"
+              aria-checked={isActive}
+              tabIndex={0}
+              whileHover={{ scale: 1.03, y: -2 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => props.onChange(item.key)}
-              className={`relative overflow-hidden flex flex-col items-start text-left p-4 rounded-2xl transition-all duration-300 border ${
+              className={`relative overflow-hidden flex flex-col items-start text-left p-5 rounded-[1.75rem] transition-all duration-500 border outline-none ${
                 isActive
-                  ? "bg-purple-600/10 border-purple-500 shadow-[0_0_20px_rgba(124,58,237,0.1)]"
-                  : "bg-zinc-900/40 border-zinc-800/50 hover:border-zinc-700/80"
+                  ? "bg-emerald-500/[0.08] border-emerald-500/40 shadow-[inset_0_0_20px_rgba(16,185,129,0.05)]"
+                  : "bg-zinc-900/40 border-white/[0.03] hover:border-white/[0.1] hover:bg-zinc-900/60"
               }`}
             >
               {isActive && (
                 <motion.div
-                  layoutId={`${props.title}-active-glow`}
-                  className="absolute inset-0 bg-purple-500/5 pointer-events-none"
+                  layoutId={`${props.title}-active-dot`}
+                  className="absolute top-4 right-4 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]"
                 />
               )}
-              <span
-                className={`text-[12px] font-black uppercase tracking-tight mb-1 transition-colors ${
-                  isActive ? "text-purple-400" : "text-zinc-300"
-                }`}
-              >
-                {item.title}
-              </span>
-              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest leading-tight">
+              
+              <div className="flex items-center gap-3 mb-3 w-full">
+                {item.icon && (
+                  <div className={`shrink-0 transition-colors ${isActive ? "text-emerald-400" : "text-zinc-600"}`}>
+                    {item.icon}
+                  </div>
+                )}
+                <span
+                  className={`text-[12px] font-heading font-black uppercase tracking-tight transition-colors ${
+                    isActive ? "text-white" : "text-zinc-400"
+                  }`}
+                >
+                  {item.title}
+                </span>
+              </div>
+              
+              <span className={`text-[10px] font-bold uppercase tracking-widest leading-none ${isActive ? 'text-emerald-500/60' : 'text-zinc-600'}`}>
                 {item.desc}
               </span>
-              
-              {isActive && (
-                <div className="absolute top-3 right-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_#7C3AED]" />
-                </div>
-              )}
             </motion.button>
           );
         })}
       </div>
     </div>
   );
-}
+});

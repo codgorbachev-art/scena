@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { generateThumbnailVisual } from "../services/geminiService";
@@ -58,12 +57,11 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
     >
       <div className="relative overflow-hidden rounded-[2.5rem] bg-[#09090b]/60 border border-zinc-800/40 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] backdrop-blur-2xl flex flex-col h-full transition-all duration-700 group-hover:border-emerald-500/40 group-hover:shadow-[0_40px_80px_-15px_rgba(16,185,129,0.15)] group-hover:-translate-y-2">
         
-        {/* Aspect Ratio Container for Visual */}
         <div className="aspect-video bg-[#020202] relative overflow-hidden flex items-center justify-center border-b border-zinc-900/50">
           <AnimatePresence mode="wait">
             {visual ? (
               <motion.div key="img" className="w-full h-full relative" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <img src={visual} className="w-full h-full object-cover select-none brightness-90 group-hover:brightness-105 transition-all duration-700" alt="Thumbnail" />
+                <img src={visual} className="w-full h-full object-cover select-none brightness-90 group-hover:brightness-105 transition-all duration-700" alt={`Превью: ${idea}`} loading="lazy" />
                 <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-center items-center p-6 gap-3 backdrop-blur-md">
                     <button 
                       onClick={onDownload} 
@@ -117,12 +115,11 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
           </AnimatePresence>
         </div>
         
-        {/* Text Content Area */}
         <div className="p-8 md:p-10 space-y-4 bg-gradient-to-b from-transparent to-black/40 flex-1 flex flex-col">
           <div className="flex justify-between items-center">
              <div className="flex items-center gap-2">
                 <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${visual ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-zinc-800'}`} />
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.4em] font-mono">Concept 0{index + 1}</span>
+                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.4em] font-mono">Концепт 0{index + 1}</span>
              </div>
              {visual && (
                <div className="flex items-center gap-1.5">
@@ -135,14 +132,13 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
           </p>
         </div>
         
-        {/* Inner Volume Glow */}
         <div className="absolute inset-0 pointer-events-none rounded-[2.5rem] border border-white/5 group-hover:border-emerald-500/20 transition-all duration-500 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] group-hover:shadow-[inset_0_1px_2px_rgba(16,185,129,0.2)]" />
       </div>
     </motion.div>
   );
 };
 
-export function ThumbnailCarousel({ ideas }: ThumbnailCarouselProps) {
+export const ThumbnailCarousel = React.memo(({ ideas }: ThumbnailCarouselProps) => {
   const [visuals, setVisuals] = useState<Record<number, string>>({});
   const [loadingStates, setLoadingStates] = useState<Record<number, boolean>>({});
   const [errorStates, setErrorStates] = useState<Record<number, string | null>>({});
@@ -176,11 +172,10 @@ export function ThumbnailCarousel({ ideas }: ThumbnailCarouselProps) {
         
         <div className="flex items-center gap-4">
            <div className="h-px w-16 bg-zinc-800" />
-           <span className="text-[10px] font-black text-zinc-700 uppercase tracking-widest font-mono">Pack: {ideas.length} Variations</span>
+           <span className="text-[10px] font-black text-zinc-700 uppercase tracking-widest font-mono">Пакет: {ideas.length} Вариаций</span>
         </div>
       </div>
 
-      {/* Grid container with proper spacing and width handling */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 w-full">
         {ideas.map((idea, index) => (
           <ThumbnailCard 
@@ -203,4 +198,4 @@ export function ThumbnailCarousel({ ideas }: ThumbnailCarouselProps) {
       </div>
     </div>
   );
-}
+});

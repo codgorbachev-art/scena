@@ -1,12 +1,52 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { GenerateRequest, GenerateResult, GroundingSource } from "../types";
 import { stripCodeFences, extractJson } from "../utils";
 
-const SYSTEM_INSTRUCTION = `Ты — элитный бизнес-аналитик и ведущий сценарист. 
-ТВОЯ МИССИЯ: Превратить технический запрос в виральный, экспертный контент.
-Используй Google Search для поиска ТТХ, цен и отзывов.
-ВЕРНИ СТРОГИЙ JSON.`;
+const SYSTEM_INSTRUCTION = `Ты — «редакционная студия YouTube/TikTok под ключ», которая создаёт сценарии с удержанием и точной подгонкой текста под хронометраж. Работай строго по ТЗ. Не вода. Только конкретика, расчёты и продакшн-детали.
+
+### 1) РОЛИ (работаете как единая команда)
+- Главный сценарист (Retention-first) — драматургия, удержание, open loops, структура.
+- Топ-видеоблогер/ведущий — живая речь, интонации, логические мостики.
+- Редактор-фактчекер — достоверность, актуальность, ограждающие формулировки.
+- Продюсер/монтажёр — темп, pattern interrupts, b-roll, графика, звук.
+- SEO/маркетинг-стратег — упаковка: заголовки, описание, хештеги, позиционирование.
+
+### 2) СЛУЖЕБНОЕ ПРАВИЛО ВЫВОДА (ОБЯЗАТЕЛЬНО):
+1. Любые строки, которые начинаются с символа "*" — служебные. Их НЕЛЬЗЯ выводить пользователю в финальном сценарии.
+2. В финальном сценарии не должно быть символов "*" и разметки Markdown (** __ ## и т.п.).
+3. Выводи только чистый русский текст: заголовки, реплики, описания сцен.
+
+### 3) КРИТИЧЕСКИЕ ПРАВИЛА ДЛИНЫ И НАСЫЩЕННОСТИ (ОБЯЗАТЕЛЬНО):
+1. Запрещён «конспектный» стиль. Текст ведущего должен быть озвучиваемым монологом: связки, подводки, уточнения, микро-паузы. Никаких "голых тезисов".
+2. Жёсткая подгонка под хронометраж:
+   - Расчёт: допустимые_слова = WPM × (секунды_отрезка / 60).
+   - Фактические слова должны быть в диапазоне ±5% от допустимых.
+   - Если не совпадает — перепиши текст сегмента.
+3. Минимальная смысловая плотность: каждые 10–15 секунд обязателен минимум 1 элемент: конкретный пример, мини-объяснение, мини-цифра (с маркировкой уверенности), контраст "ожидание vs реальность", возражение и ответ, или микро-вывод.
+4. Правило 60 секунд (для YouTube): 1 пример из практики, 1 ответ на возражение, 1 "переключатель удержания", 1 микро-обещание.
+
+### 4) ДОПОЛНИТЕЛЬНО ДЛЯ ЛОНГФОРМ 30:00:
+- Каждые 2–4 минуты делай “контрольную точку”: краткий итог + обещание следующего блока.
+- Каждые 40–90 секунд вставляй мини-историю (15–25 секунд).
+- В каждой главе минимум 1 визуальное доказательство (таблица, схема, крупный план).
+
+### 5) ФОРМАТ ВЫВОДА (JSON):
+{
+  "extractedText": "Чистый текст: Каркас ценности и факты. БЕЗ MARKDOWN.",
+  "titleOptions": ["3 заголовка"],
+  "hookOptions": ["3 варианта хука"],
+  "scriptMarkdown": "Финальный текст сценария. БЕЗ MARKDOWN, БЕЗ ЗВЕЗДОЧЕК, БЕЗ РЕШЕТОК. Только чистый русский текст.",
+  "shots": [{ 
+    "t": "мм:сс–мм:сс", 
+    "frame": "Описание сцены", 
+    "onScreenText": "Текст на экране", 
+    "voiceOver": "Чистый текст диктора (под WPM, без Markdown)", 
+    "broll": "Монтаж/SFX" 
+  }],
+  "thumbnailIdeas": ["Идеи для обложек"],
+  "hashtags": ["хештеги через запятую"],
+  "checklist": ["Технические советы и WPM расчет"]
+}`;
 
 const getApiKey = () => {
   const key = process.env.API_KEY;
@@ -18,12 +58,10 @@ const getApiKey = () => {
 
 export async function generateScenario(req: GenerateRequest): Promise<GenerateResult> {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("API Key не настроен. Пожалуйста, добавьте API_KEY в настройки Vercel.");
+  if (!apiKey) throw new Error("API Key не настроен.");
 
   const ai = new GoogleGenAI({ apiKey });
-  
   const duration = req.options.durationSec;
-  const targetWordCount = Math.floor((duration / 60) * 140);
 
   const promptParts: any[] = [];
   
@@ -34,24 +72,23 @@ export async function generateScenario(req: GenerateRequest): Promise<GenerateRe
   }
 
   const promptText = `
-ОБЪЕКТ: "${req.input.text || "Анализ"}"
-ПЛАТФОРМА: ${req.options.platform}
-ТАЙМИНГ: ${duration} сек.
-СТИЛЬ: ${req.options.style}
+### INPUT ДАННЫЕ:
+ТЕМА: "${req.input.text || "Анализ темы"}"
+ЦА: Широкая аудитория
 ЦЕЛЬ: ${req.options.direction}
+ЯЗЫК: RU
+PLATFORM: ${req.options.platform}
+ASPECT: ${req.options.platform === 'youtube' ? '16:9 landscape' : '9:16 vertical'}
+NARRATIVE STYLE: ${req.options.style}
+DURATION: ${Math.floor(duration/60)}:${String(duration%60).padStart(2, '0')}
+WEB-ПОИСК: Да
 
-ВЕРНИ JSON:
-{
-  "extractedText": "Анализ рынка и объекта...",
-  "titleOptions": ["Заголовок 1"],
-  "hookOptions": ["Хук 1"],
-  "scriptMarkdown": "Текст...",
-  "shots": [{ "t": "00:00", "frame": "Кадр", "onScreenText": "Текст", "voiceOver": "Диктор", "broll": "SFX" }],
-  "thumbnailIdeas": ["Идея 1"],
-  "hashtags": ["Тег"],
-  "checklist": ["Совет"]
-}
-  `.trim();
+### ТРЕБОВАНИЯ:
+1. Темп речи (WPM): эксперт 140, средний 160, энергичный 175. Выбери под стиль.
+2. Проверь факты через Google Search (минимум 3 источника).
+3. Сформируй Timeline с шагом 15 секунд.
+4. СОБЛЮДАЙ СЛУЖЕБНОЕ ПРАВИЛО: НИКАКОГО MARKDOWN (##, **, __) И НИКАКИХ ЗВЕЗДОЧЕК (*) В ФИНАЛЬНОМ ТЕКСТЕ.
+`.trim();
 
   promptParts.push({ text: promptText });
 
@@ -61,7 +98,7 @@ export async function generateScenario(req: GenerateRequest): Promise<GenerateRe
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
       responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 31000 },
+      thinkingConfig: { thinkingBudget: 32000 },
       tools: [{ googleSearch: {} }]
     }
   });
@@ -96,7 +133,7 @@ export async function generateThumbnailVisual(idea: string): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-image-preview',
-    contents: [{ parts: [{ text: `Cinematic commercial photography: ${idea}` }] }],
+    contents: [{ parts: [{ text: `Professional YouTube thumbnail art, cinematic, high contrast, text-less, 8k: ${idea}` }] }],
     config: {
       imageConfig: { aspectRatio: "16:9", imageSize: "1K" }
     }
@@ -116,5 +153,5 @@ export async function generateThumbnailVisual(idea: string): Promise<string> {
     }
   }
   
-  throw new Error("Не удалось извлечь изображение из ответа модели.");
+  throw new Error("Ошибка генерации изображения.");
 }
